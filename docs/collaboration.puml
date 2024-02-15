@@ -1,0 +1,144 @@
+@startuml
+
+autonumber
+
+actor User as user
+
+box "Client" #LightYellow
+  participant "Web Browser" as browser
+  participant "Client App\n[html5, javascript]" as app
+  participant "Web Socket\n[socket.io]" as cws
+  participant "Device\n[mediasoup]" as device
+  participant "Send Transport\n[mediasoup]" as sendTransport
+  participant "Video Producer\n[mediasoup]" as clientVideoProducer
+  participant "Audio Producer\n[mediasoup]" as clientAudioProducer
+end box
+
+box "Server" #LightBlue
+  participant "Server App\n[node.js, express]" as serverApp
+  participant "Web Socket\n[socket.io]" as sws
+  participant "Worker\n[mediasoup]" as worker
+  participant "Router\n[mediasoup]" as router
+  participant "WebRTC Transport\n[mediasoup]" as webRtcTransport
+  participant "Video Producer\n[mediasoup]" as serverVideoProducer
+  participant "Audio Producer\n[mediasoup]" as serverAudioProducer
+  participant "Video RTP Transport\n[mediasoup]" as videoRtpTransport
+  participant "Video Consumer\n[mediasoup]" as serverVideoConsumer
+  participant "Audio RTP Transport\n[mediasoup]" as audioRtpTransport
+  participant "Audio Consumer\n[mediasoup]" as serverAudioConsumer
+  participant "FFmpeg" as ffmpeg
+end box
+
+activate serverApp
+
+group "Start the server"
+  serverApp -> sws : create
+  activate sws
+
+  serverApp -> worker : create
+  activate worker
+
+  serverApp -> router : create(worker)
+  activate router
+end
+
+group "User opens the app"
+  user -> browser : open
+  activate browser
+
+  browser -> app : load
+  activate app
+
+  app -> cws : create
+  activate cws
+
+  cws -> sws : connect
+end
+
+sws -> serverApp : on(<<event>> connect)
+serverApp -> router : rtcCapabilities
+router -> serverApp : rtcCapabilities
+serverApp -> sws : emit(<<event>> routerRtpCapabilities)
+sws -> cws : <<event>> routerRtpCapabilities
+cws -> app : on(<<event>> routerRtpCapabilities)
+app -> device : create
+activate device
+
+app -> device : load(routerRtpCapabilities)
+app -> cws : emit(<<event>> createTransport)
+cws -> sws : <<event>> createTransport
+sws -> serverApp : on(<<event>> createTransport)
+serverApp -> webRtcTransport : create
+activate webRtcTransport
+
+serverApp -> sws : emit(<<event>> createSendTransport(webRtcTransportParameters))
+sws -> cws : <<event>> createSendTransport(webRtcTransportParameters)
+cws -> app : on(<<event>> createSendTransport(webRtcTransportParameters))
+app -> sendTransport : create(webRtcTransportParameters)
+activate sendTransport
+
+app -> sendTransport : produce({ track: videoTrack })
+sendTransport -> clientVideoProducer : create
+activate clientVideoProducer
+
+sendTransport -> app : on(<<event>> produce(videoProducerParameters))
+
+group "first call to transport.produce() only"
+  app -> cws : emit(<<event>> connectTransport(transportId, dtlsParameters))
+  cws -> sws : <<event>> connectTransport(transportId, dtlsParameters)
+  sws -> serverApp : on(<<event>> connectTransport(transportId, dtlsParameters))
+  serverApp -> webRtcTransport : connect(dtlsParameters)
+end
+app -> cws : emit(<<event>> registerProducer(videoProducerParameters))
+cws -> sws : <<event>> registerProducer(videoProducerParameters)
+sws -> serverApp : <<event>> registerProducer(videoProducerParameters)
+serverApp -> webRtcTransport : produce(videoProducerParameters)
+webRtcTransport -> serverVideoProducer : create
+activate serverVideoProducer
+
+app -> sendTransport : produce({ track: audioTrack })
+sendTransport -> clientAudioProducer : create
+activate clientAudioProducer
+
+sendTransport -> app : on(<<event>> produce(audioProducerParameters))
+app -> cws : emit(<<event>> registerProducer(audioProducerParameters))
+cws -> sws : <<event>> registerProducer(audioProducerParameters)
+sws -> serverApp : <<event>> registerProducer(audioProducerParameters)
+serverApp -> webRtcTransport : produce(audioProducerParameters)
+webRtcTransport -> serverAudioProducer : create
+activate serverAudioProducer
+
+app -> cws : emit(<<event>> startRecording)
+cws -> sws : <<event>> startRecording
+sws -> serverApp : on(<<event>> startRecording)
+serverApp -> videoRtpTransport : create
+activate videoRtpTransport
+serverApp -> videoRtpTransport : consume(videoProducerParams)
+videoRtpTransport -> serverVideoConsumer : create
+activate serverVideoConsumer
+
+serverApp -> audioRtpTransport : create
+activate audioRtpTransport
+serverApp -> audioRtpTransport : consume(audioProducerParams)
+audioRtpTransport -> serverAudioConsumer : create
+activate serverAudioConsumer
+
+serverApp -> ffmpeg : start
+activate ffmpeg
+
+serverApp -> serverVideoConsumer : resume
+serverApp -> serverVideoConsumer : requestKeyFrame
+serverApp -> serverAudioConsumer : resume
+serverApp -> serverAudioConsumer : requestKeyFrame
+
+par "piping video and audio data to ffmpeg"
+  serverVideoConsumer -> ffmpeg : <<video data>>
+  serverAudioConsumer -> ffmpeg : <<audio data>>
+end
+
+clientApp -> cws : emit(<<event>> stopRecording)
+cws -> sws : <<event>> stopRecording
+sws -> serverApp : on(<<event>> stopRecording)
+serverApp -> ffmpeg : kill
+
+@enduml

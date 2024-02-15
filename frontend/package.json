@@ -1,0 +1,21 @@
+{
+  "name": "webrtc-mediasoup-ffmpeg-recorder-poc-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for mediasoup-based video streaming application",
+  "scripts": {
+    "dev": "parcel src/index.html",
+    "build": "parcel build src/index.html"
+  },
+  "dependencies": {
+    "mediasoup-client": "^3.7.2",
+    "socket.io-client": "^4.7.4"
+  },
+  "devDependencies": {
+    "buffer": "^5.5.0||^6.0.0",
+    "events": "^3.1.0",
+    "parcel": "^2.11.0",
+    "process": "^0.11.10"
+  },
+  "author": "Marc Tremblay",
+  "license": "0BSD"
+}

@@ -1,0 +1,16 @@
+{
+  "name": "webrtc-mediasoup-ffmpeg-recorder-poc-backend",
+  "version": "1.0.0",
+  "description": "Backend for a PoC to test WebRTC with FER",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "mediasoup": "^3.13.19",
+    "socket.io": "^4.7.4"
+  },
+  "author": "Marc Tremblay",
+  "license": "0BSD"
+}

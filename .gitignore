@@ -1,0 +1,6 @@
+.DS_Store
+.parcel-cache
+backend/files/output-*
+dist
+node_modules
+out
