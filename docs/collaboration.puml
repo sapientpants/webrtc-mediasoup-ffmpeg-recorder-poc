@@ -136,7 +136,7 @@ par "piping video and audio data to ffmpeg"
   serverAudioConsumer -> ffmpeg : <<audio data>>
 end
 
-clientApp -> cws : emit(<<event>> stopRecording)
+app -> cws : emit(<<event>> stopRecording)
 cws -> sws : <<event>> stopRecording
 sws -> serverApp : on(<<event>> stopRecording)
 serverApp -> ffmpeg : kill
